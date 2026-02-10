@@ -250,6 +250,56 @@
     prevents catastrophically large updates.
 </p>
 
+<h3>What Is the Advantage?</h3>
+<p>
+    The <strong>advantage</strong> \(\hat{A}_t\) answers: <em>"How much better was this action than
+    what we'd normally expect?"</em> It is the core signal that tells the policy which actions
+    to reinforce and which to suppress.
+</p>
+
+<div class="eq-block">
+    <div class="label">Advantage Definition</div>
+    $$\hat{A}_t = Q(s_t, a_t) - V(s_t)$$
+    <p style="margin-top:0.5rem; font-size:0.9rem;">
+        \(Q(s,a)\) = expected total reward after taking action \(a\) in state \(s\)<br>
+        \(V(s)\) = expected total reward from state \(s\) under the current policy (the <em>baseline</em>)
+    </p>
+</div>
+
+<p>
+    If \(\hat{A}_t > 0\), the action was <strong>better than average</strong> &mdash; reinforce it.
+    If \(\hat{A}_t < 0\), the action was <strong>worse than average</strong> &mdash; suppress it.
+    Subtracting the baseline \(V(s)\) reduces variance without introducing bias: we only care
+    about <em>relative</em> quality, not the absolute reward level.
+</p>
+
+<div class="eq-block">
+    <div class="label">How PPO Estimates the Advantage in Practice</div>
+    <p style="margin-bottom:0.5rem;">In full-scale RLHF, advantages are typically computed with <strong>Generalized Advantage Estimation (GAE)</strong>:</p>
+    $$\hat{A}_t^{\text{GAE}} = \sum_{l=0}^{T-t}(\gamma\lambda)^l\,\delta_{t+l}, \quad \text{where } \delta_t = r_t + \gamma\, V(s_{t+1}) - V(s_t)$$
+    <p style="margin-top:0.5rem; font-size:0.9rem;">
+        \(\delta_t\) is the <strong>TD residual</strong> (one-step prediction error of the value network).<br>
+        \(\gamma\) = discount factor, \(\lambda\) = GAE smoothing parameter.<br>
+        This requires a <strong>learned value network</strong> \(V(s)\) &mdash; one reason PPO is the most complex of the three.
+    </p>
+</div>
+
+<p>
+    In our toy code, we use the simplest possible baseline &mdash; the batch mean reward:
+</p>
+<pre><code>advantages = rewards - rewards.mean()   <span class="comment"># simple baseline</span></code></pre>
+<p>
+    This is equivalent to \(\hat{A}_t = r_t - \bar{r}\). Simple, but it illustrates the core idea:
+    center the rewards so the gradient pushes up on above-average actions and down on below-average ones.
+</p>
+
+<div class="callout">
+    <strong>Each algorithm handles advantages differently:</strong><br>
+    &bull; <strong>PPO</strong>: learned value network (GAE) &mdash; most accurate, most complex<br>
+    &bull; <strong>DPO</strong>: no explicit advantage &mdash; the preference pair <em>is</em> the signal (chosen > rejected)<br>
+    &bull; <strong>GRPO</strong>: group-relative normalization \(\hat{A}_i = (r_i - \mu) / \sigma\) &mdash; no value network needed
+</div>
+
 <h3>Core Equations</h3>
 
 <div class="eq-block">
@@ -427,6 +477,15 @@
     Each response is compared <em>only to its siblings</em> in the group, not to an absolute
     baseline. This is simple, robust, and requires no learned value function.
 </p>
+
+<div class="callout">
+    <strong>Why does this work as an advantage?</strong>
+    Recall that the advantage is \(Q(s,a) - V(s)\): how much better is this action than average?
+    GRPO approximates this by using the <em>group mean reward</em> as the baseline \(V(s)\).
+    Dividing by the standard deviation normalizes the scale, so the gradient step size is stable
+    regardless of whether rewards are in \([0, 1]\) or \([0, 100]\). No learned value network, no
+    extra parameters &mdash; just statistics over the group.
+</div>
 
 <div class="eq-block">
     <div class="label">GRPO Objective (same clip structure as PPO)</div>
