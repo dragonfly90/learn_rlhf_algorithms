@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RLHF Algorithms: PPO, DPO & GRPO Explained</title>
+
+    <!-- KaTeX CSS & JS from CDN -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+            onload="renderMathInElement(document.body, {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '\\(', right: '\\)', display: false}
+                ]
+            });"></script>
+
+    <style>
+        :root {
+            --bg: #ffffff;
+            --fg: #1a1a2e;
+            --accent: #0f3460;
+            --accent2: #e94560;
+            --code-bg: #f4f4f8;
+            --border: #ddd;
+            --card-bg: #fafbfe;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            color: var(--fg);
+            background: var(--bg);
+            line-height: 1.7;
+            max-width: 860px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            color: var(--accent);
+            margin-bottom: 0.3rem;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+        }
+
+        h2 {
+            font-size: 1.6rem;
+            color: var(--accent);
+            margin-top: 3rem;
+            margin-bottom: 0.5rem;
+            padding-bottom: 0.3rem;
+            border-bottom: 2px solid var(--accent2);
+        }
+
+        h3 {
+            font-size: 1.2rem;
+            color: var(--accent);
+            margin-top: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        p { margin-bottom: 1rem; }
+
+        a { color: var(--accent2); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        .eq-block {
+            background: var(--card-bg);
+            border-left: 4px solid var(--accent2);
+            padding: 1rem 1.2rem;
+            margin: 1.2rem 0;
+            overflow-x: auto;
+        }
+
+        .eq-block .label {
+            font-weight: 600;
+            color: var(--accent);
+            font-size: 0.9rem;
+            margin-bottom: 0.3rem;
+        }
+
+        code {
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 0.88em;
+            background: var(--code-bg);
+            padding: 0.15em 0.4em;
+            border-radius: 3px;
+        }
+
+        pre {
+            background: #1e1e2e;
+            color: #cdd6f4;
+            padding: 1.2rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1rem 0 1.5rem;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+            color: inherit;
+        }
+
+        .comment { color: #6c7086; font-style: italic; }
+        .keyword { color: #cba6f7; }
+        .func { color: #89b4fa; }
+        .string { color: #a6e3a1; }
+        .number { color: #fab387; }
+
+        .pipeline {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+            margin: 1rem 0;
+            font-size: 0.95rem;
+        }
+
+        .pipeline .step {
+            background: var(--accent);
+            color: #fff;
+            padding: 0.3rem 0.7rem;
+            border-radius: 5px;
+            white-space: nowrap;
+        }
+
+        .pipeline .arrow { color: var(--accent2); font-weight: bold; font-size: 1.2rem; }
+
+        .callout {
+            background: #fff8e1;
+            border-left: 4px solid #ffc107;
+            padding: 0.8rem 1rem;
+            margin: 1rem 0;
+            border-radius: 0 6px 6px 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            font-size: 0.92rem;
+        }
+
+        th {
+            background: var(--accent);
+            color: #fff;
+            padding: 0.7rem 0.8rem;
+            text-align: left;
+        }
+
+        td {
+            padding: 0.6rem 0.8rem;
+            border-bottom: 1px solid var(--border);
+            vertical-align: top;
+        }
+
+        tr:nth-child(even) td { background: var(--card-bg); }
+
+        .toc {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.2rem 1.5rem;
+            margin: 1.5rem 0 2rem;
+        }
+
+        .toc h3 { margin-top: 0; }
+        .toc ol { padding-left: 1.2rem; }
+        .toc li { margin-bottom: 0.3rem; }
+
+        footer {
+            margin-top: 3rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border);
+            color: #888;
+            font-size: 0.85rem;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<h1>RLHF Algorithms Explained</h1>
+<p class="subtitle">PPO, DPO & GRPO &mdash; the math, the intuition, and annotated NumPy code</p>
+
+<div class="toc">
+    <h3>Contents</h3>
+    <ol>
+        <li><a href="#overview">Overview: Why Align Language Models?</a></li>
+        <li><a href="#ppo">PPO &mdash; Proximal Policy Optimization</a></li>
+        <li><a href="#dpo">DPO &mdash; Direct Preference Optimization</a></li>
+        <li><a href="#grpo">GRPO &mdash; Group Relative Policy Optimization</a></li>
+        <li><a href="#comparison">Side-by-Side Comparison</a></li>
+    </ol>
+</div>
+
+<!-- ================================================================== -->
+<h2 id="overview">1. Overview: Why Align Language Models?</h2>
+
+<p>
+    Pre-trained language models can generate fluent text, but they don't inherently know
+    <em>what</em> humans want. <strong>RLHF</strong> (Reinforcement Learning from Human Feedback)
+    bridges this gap by fine-tuning a model to prefer outputs that humans rate highly.
+</p>
+<p>
+    The three algorithms below represent the main approaches used in production today:
+</p>
+<ul style="margin-bottom:1rem; padding-left:1.5rem;">
+    <li><strong>PPO</strong> &mdash; full RL pipeline with a learned reward model (InstructGPT, early ChatGPT)</li>
+    <li><strong>DPO</strong> &mdash; supervised shortcut that skips the reward model (Llama 2/3, Zephyr)</li>
+    <li><strong>GRPO</strong> &mdash; simplified RL with group-relative scoring, no critic network (DeepSeek-R1)</li>
+</ul>
+<p>
+    All code examples below come from
+    <a href="rlhf_algorithms.py"><code>rlhf_algorithms.py</code></a>, a pure-NumPy educational
+    implementation you can run with just <code>pip install numpy</code>.
+</p>
+
+<!-- ================================================================== -->
+<h2 id="ppo">2. PPO &mdash; Proximal Policy Optimization</h2>
+<p><em>Schulman et al., 2017 &bull; Used by InstructGPT & early ChatGPT</em></p>
+
+<h3>Pipeline</h3>
+<div class="pipeline">
+    <span class="step">Prompt</span>
+    <span class="arrow">&rarr;</span>
+    <span class="step">Policy generates response</span>
+    <span class="arrow">&rarr;</span>
+    <span class="step">Reward model scores it</span>
+    <span class="arrow">&rarr;</span>
+    <span class="step">PPO clips &amp; updates</span>
+</div>
+
+<h3>Key Idea</h3>
+<p>
+    Train a separate <strong>reward model</strong> on human preferences, then use it to score
+    policy outputs. The policy is updated via a <em>clipped surrogate objective</em> that
+    prevents catastrophically large updates.
+</p>
+
+<h3>Core Equations</h3>
+
+<div class="eq-block">
+    <div class="label">Probability Ratio</div>
+    $$r_t(\theta) = \frac{\pi_\theta(a_t \mid s_t)}{\pi_{\theta_\text{old}}(a_t \mid s_t)}$$
+</div>
+
+<div class="eq-block">
+    <div class="label">Clipped Surrogate Objective (maximize)</div>
+    $$L^{\text{CLIP}}(\theta) = \mathbb{E}_t\!\Big[\min\!\Big(r_t(\theta)\,\hat{A}_t,\;\text{clip}\!\big(r_t(\theta),\, 1{-}\epsilon,\, 1{+}\epsilon\big)\,\hat{A}_t\Big)\Big]$$
+</div>
+
+<p>
+    When the advantage \(\hat{A}_t > 0\), the ratio is clipped at \(1 + \epsilon\) so the policy
+    can't move too far in the "good" direction. When \(\hat{A}_t < 0\), it's clipped at
+    \(1 - \epsilon\). The \(\min\) selects the <em>pessimistic</em> bound.
+</p>
+
+<div class="eq-block">
+    <div class="label">KL Penalty (keeps policy near the reference SFT model)</div>
+    $$D_{\text{KL}}(\pi_\theta \| \pi_\text{ref}) \approx \mathbb{E}\!\Big[\exp\!\big(\log\pi_\theta - \log\pi_\text{ref}\big) - \big(\log\pi_\theta - \log\pi_\text{ref}\big) - 1\Big]$$
+</div>
+
+<div class="eq-block">
+    <div class="label">Combined Loss</div>
+    $$\mathcal{L}_{\text{PPO}} = -L^{\text{CLIP}}(\theta) + \beta \cdot D_{\text{KL}}(\pi_\theta \| \pi_\text{ref})$$
+</div>
+
+<h3>Annotated Code</h3>
+<pre><code><span class="keyword">def</span> <span class="func">ppo_update</span>(policy, states, actions, old_log_probs, advantages,
+               ref_log_probs, lr=<span class="number">0.01</span>, clip_eps=<span class="number">0.2</span>, kl_coeff=<span class="number">0.1</span>):
+
+    new_log_probs = policy.log_probs(states, actions)
+    grad_lp = policy.grad_log_prob(states, actions)
+
+    <span class="comment"># ratio = pi_new / pi_old  (in log space for stability)</span>
+    ratio = np.exp(new_log_probs - old_log_probs)
+
+    <span class="comment"># Clipped surrogate: take the pessimistic bound</span>
+    surr1 = ratio * advantages
+    surr2 = np.clip(ratio, <span class="number">1.0</span> - clip_eps, <span class="number">1.0</span> + clip_eps) * advantages
+    use_unclipped = (surr1 &lt;= surr2).astype(<span class="keyword">float</span>)
+
+    <span class="comment"># Policy gradient (ascent direction)</span>
+    ppo_grad = (use_unclipped * advantages * ratio)[:, <span class="keyword">None</span>, <span class="keyword">None</span>] * grad_lp
+    ppo_grad = ppo_grad.mean(axis=<span class="number">0</span>)
+
+    <span class="comment"># KL penalty to stay near the reference (SFT) model</span>
+    log_diff = new_log_probs - ref_log_probs
+    kl_grad = (kl_coeff * (np.exp(log_diff) - <span class="number">1.0</span>))[:, <span class="keyword">None</span>, <span class="keyword">None</span>] * grad_lp
+    kl_grad = kl_grad.mean(axis=<span class="number">0</span>)
+
+    <span class="comment"># Ascend on objective, descend on KL</span>
+    policy.update(lr * (ppo_grad - kl_grad))</code></pre>
+
+<div class="callout">
+    <strong>Why clipping?</strong> Without it, a single batch with high advantage could push the
+    policy far from the old policy, causing training instability. The clip acts as a trust region.
+</div>
+
+<!-- ================================================================== -->
+<h2 id="dpo">3. DPO &mdash; Direct Preference Optimization</h2>
+<p><em>Rafailov et al., 2023 &bull; Used by Llama 2/3, Zephyr</em></p>
+
+<h3>Pipeline</h3>
+<div class="pipeline">
+    <span class="step">Preference pairs (y<sub>w</sub>, y<sub>l</sub>)</span>
+    <span class="arrow">&rarr;</span>
+    <span class="step">One supervised loss</span>
+    <span class="arrow">&rarr;</span>
+    <span class="step">Updated policy</span>
+</div>
+
+<h3>Key Idea</h3>
+<p>
+    DPO shows that you can <strong>skip the reward model entirely</strong>. Given human preference
+    pairs (chosen response \(y_w\) vs. rejected \(y_l\)), DPO derives a closed-form loss from the
+    Bradley-Terry preference model. The loss directly increases the gap between chosen and rejected
+    log-probabilities, relative to a frozen reference model.
+</p>
+
+<h3>Core Equations</h3>
+
+<div class="eq-block">
+    <div class="label">DPO Loss</div>
+    $$\mathcal{L}_{\text{DPO}}(\theta) = -\mathbb{E}\!\Big[\log\sigma\!\Big(\beta\Big[\underbrace{\log\frac{\pi_\theta(y_w)}{\pi_\text{ref}(y_w)}}_{\text{chosen reward}} - \underbrace{\log\frac{\pi_\theta(y_l)}{\pi_\text{ref}(y_l)}}_{\text{rejected reward}}\Big]\Big)\Big]$$
+</div>
+
+<p>
+    The \(\sigma(\cdot)\) is the sigmoid function. The loss is minimized when the policy assigns
+    much higher probability to the <em>chosen</em> response (relative to the reference) than to the
+    <em>rejected</em> one.
+</p>
+
+<div class="eq-block">
+    <div class="label">Gradient</div>
+    $$\nabla_\theta \mathcal{L}_{\text{DPO}} = -\beta\,\mathbb{E}\!\Big[\underbrace{\big(1 - \sigma(\beta\, m)\big)}_{\text{weight}}\;\big(\nabla_\theta \log\pi_\theta(y_w) - \nabla_\theta \log\pi_\theta(y_l)\big)\Big]$$
+    <p style="margin-top:0.5rem; font-size:0.9rem;">
+        where \(m = \log\frac{\pi_\theta(y_w)}{\pi_\text{ref}(y_w)} - \log\frac{\pi_\theta(y_l)}{\pi_\text{ref}(y_l)}\) is the margin.
+    </p>
+</div>
+
+<p>
+    The weight \(1 - \sigma(\beta\, m)\) is large when the policy hasn't yet learned the
+    preference (low margin), and shrinks as the model gets it right. This makes DPO
+    <strong>self-pacing</strong>.
+</p>
+
+<h3>Annotated Code</h3>
+<pre><code><span class="keyword">def</span> <span class="func">dpo_update</span>(policy, ref_policy, states, chosen_actions,
+               rejected_actions, lr=<span class="number">0.01</span>, beta=<span class="number">0.1</span>):
+
+    <span class="comment"># Log-probs under current and reference policies</span>
+    lp_chosen  = policy.log_probs(states, chosen_actions)
+    lp_rejected = policy.log_probs(states, rejected_actions)
+    ref_chosen  = ref_policy.log_probs(states, chosen_actions)
+    ref_rejected = ref_policy.log_probs(states, rejected_actions)
+
+    <span class="comment"># Margin: how much more does policy prefer chosen vs rejected,</span>
+    <span class="comment">#         compared to the reference model?</span>
+    margin = (lp_chosen - ref_chosen) - (lp_rejected - ref_rejected)
+    logits = beta * margin
+
+    <span class="comment"># Bradley-Terry loss: -log sigma(beta * margin)</span>
+    sigmoid = <span class="number">1.0</span> / (<span class="number">1.0</span> + np.exp(-logits))
+    loss = -np.log(sigmoid + <span class="number">1e-10</span>).mean()
+
+    <span class="comment"># Gradient: push chosen up, rejected down</span>
+    grad_chosen  = policy.grad_log_prob(states, chosen_actions)
+    grad_rejected = policy.grad_log_prob(states, rejected_actions)
+    weight = -beta * (<span class="number">1.0</span> - sigmoid)
+    grad = (weight[:, <span class="keyword">None</span>, <span class="keyword">None</span>] * (grad_chosen - grad_rejected)).mean(axis=<span class="number">0</span>)
+
+    policy.update(-lr * grad)</code></pre>
+
+<div class="callout">
+    <strong>Why is DPO popular?</strong> It's dramatically simpler than PPO &mdash; no reward model
+    to train, no RL loop, no critic. Just one loss function applied to preference pairs.
+    The downside: you need high-quality preference data.
+</div>
+
+<!-- ================================================================== -->
+<h2 id="grpo">4. GRPO &mdash; Group Relative Policy Optimization</h2>
+<p><em>Shao et al., 2024 &bull; Used by DeepSeek-R1</em></p>
+
+<h3>Pipeline</h3>
+<div class="pipeline">
+    <span class="step">Prompt</span>
+    <span class="arrow">&rarr;</span>
+    <span class="step">Sample G responses</span>
+    <span class="arrow">&rarr;</span>
+    <span class="step">Score all G</span>
+    <span class="arrow">&rarr;</span>
+    <span class="step">Normalize within group</span>
+    <span class="arrow">&rarr;</span>
+    <span class="step">PPO-style update</span>
+</div>
+
+<h3>Key Idea</h3>
+<p>
+    For each prompt, sample a <strong>group</strong> of \(G\) responses. Score them all with a
+    reward function, then <strong>normalize rewards within the group</strong> to get advantages.
+    This eliminates the need for a critic/value network &mdash; the group statistics <em>are</em>
+    the baseline.
+</p>
+
+<h3>Core Equations</h3>
+
+<div class="eq-block">
+    <div class="label">Group-Relative Advantage (the key insight)</div>
+    $$\hat{A}_i = \frac{r_i - \text{mean}(\{r_1, \dots, r_G\})}{\text{std}(\{r_1, \dots, r_G\})}$$
+</div>
+
+<p>
+    Each response is compared <em>only to its siblings</em> in the group, not to an absolute
+    baseline. This is simple, robust, and requires no learned value function.
+</p>
+
+<div class="eq-block">
+    <div class="label">GRPO Objective (same clip structure as PPO)</div>
+    $$\mathcal{L}_{\text{GRPO}}(\theta) = -\frac{1}{G}\sum_{i=1}^{G}\min\!\Big(r_i(\theta)\,\hat{A}_i,\;\text{clip}\!\big(r_i(\theta), 1{-}\epsilon, 1{+}\epsilon\big)\,\hat{A}_i\Big) + \beta\, D_{\text{KL}}(\pi_\theta \| \pi_\text{ref})$$
+</div>
+
+<div class="eq-block">
+    <div class="label">KL Divergence (same approximation as PPO)</div>
+    $$D_{\text{KL}} \approx \frac{1}{G}\sum_{i=1}^{G}\Big[\exp\!\big(\log\pi_\theta(a_i) - \log\pi_\text{ref}(a_i)\big) - \big(\log\pi_\theta(a_i) - \log\pi_\text{ref}(a_i)\big) - 1\Big]$$
+</div>
+
+<h3>Annotated Code</h3>
+<pre><code><span class="keyword">def</span> <span class="func">grpo_update</span>(policy, ref_policy, prompt, group_size=<span class="number">8</span>,
+                reward_fn=<span class="keyword">None</span>, lr=<span class="number">0.01</span>, clip_eps=<span class="number">0.2</span>, kl_coeff=<span class="number">0.04</span>):
+
+    states = np.tile(prompt, (group_size, <span class="number">1</span>))  <span class="comment"># repeat prompt G times</span>
+
+    <span class="comment"># Step 1: sample G responses from current policy</span>
+    actions = policy.sample(states)
+
+    <span class="comment"># Step 2: score each response</span>
+    rewards = reward_fn(actions)
+
+    <span class="comment"># Step 3: GROUP-RELATIVE normalization → advantages</span>
+    <span class="comment"># This is the key GRPO insight: no critic needed!</span>
+    mean_r = rewards.mean()
+    std_r  = rewards.std() + <span class="number">1e-8</span>
+    advantages = (rewards - mean_r) / std_r
+
+    <span class="comment"># Step 4: PPO-style clipped update</span>
+    old_log_probs = policy.log_probs(states, actions)
+    new_log_probs = policy.log_probs(states, actions)
+    grad_lp = policy.grad_log_prob(states, actions)
+
+    ratio = np.exp(new_log_probs - old_log_probs)
+    surr1 = ratio * advantages
+    surr2 = np.clip(ratio, <span class="number">1.0</span> - clip_eps, <span class="number">1.0</span> + clip_eps) * advantages
+    use_unclipped = (surr1 &lt;= surr2).astype(<span class="keyword">float</span>)
+
+    policy_grad = (use_unclipped * advantages * ratio)[:, <span class="keyword">None</span>, <span class="keyword">None</span>] * grad_lp
+    policy_grad = policy_grad.mean(axis=<span class="number">0</span>)
+
+    <span class="comment"># KL penalty vs reference</span>
+    ref_log_probs = ref_policy.log_probs(states, actions)
+    log_diff = new_log_probs - ref_log_probs
+    kl_grad = (kl_coeff * (np.exp(log_diff) - <span class="number">1.0</span>))[:, <span class="keyword">None</span>, <span class="keyword">None</span>] * grad_lp
+    kl_grad = kl_grad.mean(axis=<span class="number">0</span>)
+
+    policy.update(lr * (policy_grad - kl_grad))</code></pre>
+
+<div class="callout">
+    <strong>Why GRPO for reasoning?</strong> Math and code problems have <em>verifiable</em> answers.
+    A simple rule-based reward (correct/incorrect) combined with group-relative ranking works
+    remarkably well &mdash; no expensive reward model training needed.
+</div>
+
+<!-- ================================================================== -->
+<h2 id="comparison">5. Side-by-Side Comparison</h2>
+
+<table>
+    <thead>
+        <tr>
+            <th></th>
+            <th>PPO</th>
+            <th>DPO</th>
+            <th>GRPO</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><strong>Reward Signal</strong></td>
+            <td>Learned reward model (separate NN)</td>
+            <td>None &mdash; implicit in preference pairs</td>
+            <td>Rule-based or learned reward</td>
+        </tr>
+        <tr>
+            <td><strong>Critic / Value Net</strong></td>
+            <td>Yes &mdash; needs a value network</td>
+            <td>No</td>
+            <td>No &mdash; uses group-relative normalization</td>
+        </tr>
+        <tr>
+            <td><strong>Training Style</strong></td>
+            <td>RL loop: sample &rarr; score &rarr; clip &rarr; update</td>
+            <td>Supervised: learn from (chosen, rejected) pairs</td>
+            <td>RL loop (simpler): sample G &rarr; rank &rarr; clip &rarr; update</td>
+        </tr>
+        <tr>
+            <td><strong>Data Needed</strong></td>
+            <td>Prompts + reward model</td>
+            <td>Preference pairs \((y_w, y_l)\)</td>
+            <td>Prompts + reward function</td>
+        </tr>
+        <tr>
+            <td><strong>Complexity</strong></td>
+            <td>High (RM + critic + policy + ref)</td>
+            <td>Low (one loss function)</td>
+            <td>Medium (no critic, but still RL loop)</td>
+        </tr>
+        <tr>
+            <td><strong>Best For</strong></td>
+            <td>General alignment with nuanced rewards</td>
+            <td>When you have quality preference data</td>
+            <td>Verifiable tasks (math, code)</td>
+        </tr>
+        <tr>
+            <td><strong>Used By</strong></td>
+            <td>InstructGPT, early ChatGPT</td>
+            <td>Llama 2/3, Zephyr</td>
+            <td>DeepSeek-R1</td>
+        </tr>
+    </tbody>
+</table>
+
+<h3>Key Takeaway</h3>
+<ul style="padding-left:1.5rem; margin-bottom:1rem;">
+    <li><strong>PPO</strong> = full RL pipeline, most general, most complex</li>
+    <li><strong>DPO</strong> = supervised shortcut, elegant but needs preference pairs</li>
+    <li><strong>GRPO</strong> = simplified RL, no critic, great for verifiable rewards</li>
+</ul>
+
+<footer>
+    <p>
+        Source code: <a href="rlhf_algorithms.py">rlhf_algorithms.py</a> &mdash; pure NumPy, no GPU needed.<br>
+        Run it: <code>python rlhf_algorithms.py</code>
+    </p>
+</footer>
+
+</body>
+</html>
