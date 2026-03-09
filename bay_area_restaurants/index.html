@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Bay Area Restaurants</title>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+        crossorigin="">
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="header-top">
+          <h1>My Restaurants</h1>
+          <span id="sync-indicator" class="sync-indicator" title="Sync status"></span>
+        </div>
+        <div class="header-buttons">
+          <button class="small-btn" onclick="window.exportData()">Export</button>
+          <button class="small-btn" onclick="document.getElementById('import-file').click()">Import</button>
+          <button id="add-btn" class="add-btn" onclick="window.openAddModal()">+ Add</button>
+        </div>
+        <input type="file" id="import-file" accept=".md" onchange="window.importData(event)" style="display:none">
+      </div>
+      <p class="subtitle">Bay Area spots I've visited</p>
+      <div id="stats-bar" class="stats-bar"></div>
+      <div class="category-tabs">
+        <button class="tab active" data-category="all">All</button>
+        <button class="tab" data-category="restaurant">Restaurants</button>
+        <button class="tab" data-category="supermarket">Markets</button>
+      </div>
+      <div id="restaurant-list"></div>
+    </aside>
+
+    <!-- Map -->
+    <div id="map"></div>
+  </div>
+
+  <!-- Add Restaurant Modal -->
+  <div id="add-modal" class="modal" style="display:none;">
+    <div class="modal-content add-modal-content">
+      <h3>Add Restaurant</h3>
+
+      <!-- Search Section -->
+      <div class="search-section">
+        <div class="search-box">
+          <input type="text" id="search-input" placeholder="Search for a restaurant..." onkeyup="window.handleSearchKeyup(event)">
+          <button onclick="window.searchRestaurants()">Search</button>
+        </div>
+        <div id="search-results" class="search-results"></div>
+      </div>
+
+      <!-- Or Manual Entry -->
+      <div class="divider"><span>or enter manually</span></div>
+
+      <form id="add-form" onsubmit="window.addRestaurantManual(event)">
+        <div class="form-group">
+          <input type="text" id="manual-name" placeholder="Restaurant name" required>
+        </div>
+        <div class="form-group">
+          <input type="text" id="manual-english" placeholder="English name (optional)">
+        </div>
+        <div class="form-group">
+          <input type="text" id="manual-address" placeholder="Address" required>
+        </div>
+        <div class="form-group">
+          <input type="text" id="manual-cuisine" placeholder="Cuisine type" required>
+        </div>
+        <div class="form-row">
+          <input type="number" id="manual-lat" placeholder="Latitude" step="any" required>
+          <input type="number" id="manual-lng" placeholder="Longitude" step="any" required>
+        </div>
+        <button type="submit" class="submit-btn">Add Restaurant</button>
+      </form>
+
+      <button class="cancel-btn" onclick="window.closeAddModal()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+          crossorigin=""></script>
+
+  <!-- Firebase SDK (compat for simplicity) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+  <script src="data.js"></script>
+  <script src="firebase-config.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>
